@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 from aletheia.annotations.provider import HDFProvider
 from aletheia.annotations.provider import DataSource
@@ -41,9 +42,9 @@ class ServerApp:
   def _create_rules(self)->None:
     self._flask.add_url_rule('/annotation/', view_func=AnnotationsView.as_view('annotations', self._annotation_provider))
 
-  def run(self)->None:
+  def run(self, host:str, port:int)->None:
     print('Starting server...')
-    self._flask.run()
+    self._flask.run(host=host, port=port)
 
 
 
@@ -62,6 +63,8 @@ if __name__ == '__main__':
 
   app = ServerApp('Aletheia Server')
   app.initialize(config)
-  app.run()
+
+  port = os.environ.get('PORT', 8000)
+  app.run('0.0.0.0', port)
 
   

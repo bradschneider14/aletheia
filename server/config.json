@@ -1,5 +1,10 @@
 {
   "annotation_sources":[
-    {"name":"P04_01", "location":"C:/Users/brads/Documents/vm_share/NN_3/P04_01.h5"}
+    {"name":"P03_02", "location":"/data/P03_02.h5"},
+    {"name":"P03_04", "location":"/data/P03_04.h5"},
+    {"name":"P04_01", "location":"/data/P04_01.h5"},
+    {"name":"P04_02", "location":"/data/P04_02.h5"},
+    {"name":"P05_01", "location":"/data/P05_01.h5"},
+    {"name":"P05_03", "location":"/data/P05_03.h5"}
   ]
 }
