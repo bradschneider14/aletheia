@@ -1,4 +1,3 @@
-aletheia @ file:///C:/Users/brads/source/repos/aletheia/server/dist/aletheia-1.0.0-py3-none-any.whl
 click==7.1.2
 Flask==1.1.2
 itsdangerous==1.1.0
