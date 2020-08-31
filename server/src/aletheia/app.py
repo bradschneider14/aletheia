@@ -5,6 +5,8 @@ from aletheia.annotations.provider import HDFProvider
 from aletheia.annotations.provider import DataSource
 from aletheia.annotations.provider import AnnotationSelector
 
+from aletheia.views.annotations import AnnotationsView
+
 from flask import Flask
 
 class ServerApp:
@@ -37,9 +39,12 @@ class ServerApp:
       self._annotation_provider.add_source(DataSource(annotation['location'], annotation['name']))
     
   def _create_rules(self)->None:
-    self._flask.add_url_rule('/session/', view_func=SessionsView.as_view('sessions'))
-    self._flask.add_url_rule('/session/<session_id>/file/', view_func=SessionFileView.as_view('session_files'))
-    self._flask.add_url_rule('/session/<session_id>/file/<file_id>', view_func=IterationsView.as_view('file_iterations'))
+    self._flask.add_url_rule('/annotation/', view_func=AnnotationsView.as_view('annotations', self._annotation_provider))
+
+  def run(self)->None:
+    print('Starting server...')
+    self._flask.run()
+
 
 
 
@@ -57,5 +62,6 @@ if __name__ == '__main__':
 
   app = ServerApp('Aletheia Server')
   app.initialize(config)
+  app.run()
 
   
