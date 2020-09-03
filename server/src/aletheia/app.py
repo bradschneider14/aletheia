@@ -40,7 +40,8 @@ class ServerApp:
       self._annotation_provider.add_source(DataSource(annotation['location'], annotation['name']))
     
   def _create_rules(self)->None:
-    self._flask.add_url_rule('/annotation/', view_func=AnnotationsView.as_view('annotations', self._annotation_provider))
+    self._flask.add_url_rule('/annotation/<annotation_id>', view_func=AnnotationsView.as_view('annotations', self._annotation_provider))
+    #self._flask.add_url_rule('/annotation/<annotation_id>/image', view_func=AnnotationsView.as_view('annotations_image', self._annotation_provider))
 
   def run(self, host:str, port:int)->None:
     print('Starting server...')

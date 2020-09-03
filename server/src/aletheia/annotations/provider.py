@@ -51,14 +51,14 @@ class HDFProvider:
     self._annotation_store.put(source.source_id, df)
   
 
-  def get_annotation(self, annotation_selector:AnnotationSelector)->pandas.Series:
+  def get_annotations(self, annotation_selector:AnnotationSelector):
     '''
     Retrieves all annotations that match the selector's properties
     '''
     df_key = annotation_selector.video_id
+    results = pandas.Series()
     if df_key:
       df_to_query = None
-      results = pandas.Series()
 
       if f'/{df_key}' in self._annotation_store.keys():
         df_to_query = self._annotation_store.get(annotation_selector.video_id)
@@ -66,8 +66,12 @@ class HDFProvider:
       if df_to_query is not None:
         results = df_to_query
         if annotation_selector.annotation_id:
-
-          results = results[results['id'] == uuid.UUID(annotation_selector.annotation_id)]
+          try:
+            the_uuid = uuid.UUID(annotation_selector.annotation_id)
+          except:
+            print(f'Received malformed UUID {annotation_selector.annotation_id}')
+            the_uuid = uuid.UUID('00000000-0000-0000-0000-000000000000')
+          results = results[results['id'] == the_uuid]
         if annotation_selector.frame_id:
           results = results[results['frame_id'] == annotation_selector.frame_id]
 
@@ -78,7 +82,12 @@ class HDFProvider:
 
         sub_results = df_to_query
         if annotation_selector.annotation_id:
-          sub_results = sub_results[sub_results['id'] == uuid.UUID(annotation_selector.annotation_id)]
+          try:
+            the_uuid = uuid.UUID(annotation_selector.annotation_id)
+          except:
+            print(f'Received malformed UUID {annotation_selector.annotation_id}')
+            the_uuid = uuid.UUID('00000000-0000-0000-0000-000000000000')
+          sub_results = sub_results[sub_results['id'] == the_uuid]
         if annotation_selector.frame_id:
           sub_results = sub_results[sub_results['frame_id'] == annotation_selector.frame_id]
 
@@ -87,4 +96,17 @@ class HDFProvider:
         else:
           results = sub_results
 
-    return results
+    return self._jsonify(results)
+
+  def _jsonify(self, annotations):
+    col_list = annotations.columns.tolist()
+
+    def to_dict(row):
+      new_item = {}
+      for index, value in enumerate(row):
+        new_item[col_list[index]] = str(value)
+
+      return new_item
+    
+    return list(map(to_dict, annotations.values.tolist()))
+      
