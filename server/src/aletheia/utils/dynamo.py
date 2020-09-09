@@ -1,8 +1,12 @@
 import boto3
+from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Key
 import os
 
 class Dynamo:
-    def __init__(self):
+    def __init__(self, url=None):
+        self.url = url
+
         self._IS_LOCAL = bool(os.environ.get('DYN_LOCAL', False))
         self._AWS_KEY = os.environ['DYN_KEY'] if not self._IS_LOCAL else 'localkey'
         self._AWS_SECRET = os.environ['DYN_SECRET'] if not self._IS_LOCAL else 'localsecret'
@@ -21,14 +25,16 @@ class Dynamo:
     def _get_client(self):
         s = self._get_session()
         if self._IS_LOCAL:
-            return s.client('dynamodb', endpoint_url='http://localhost:8000')
-        return s.client('dynamodb')        
+            return s.client('dynamodb', endpoint_url=self.url)
+        else:
+            return s.client('dynamodb')
 
     def _get_resource(self):
         s = self._get_session()
         if self._IS_LOCAL:
-            return s.resource('dynamodb', endpoint_url='http://localhost:8000')
-        return s.resource('dynamodb')
+            return s.resource('dynamodb', endpoint_url=self.url)
+        else:
+            return s.resource('dynamodb')
 
     def get_table(self, table_name, should_create=False):
         table_found = False
@@ -72,40 +78,116 @@ class Dynamo:
                 }
             )
             table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
-        return table       
-        
+        return table
+
+    def query_table(self, table_name, filter_expression, limit=1500):
+        '''
+        Submits the provided query against the table using the scan function (assumes not a key query). Returns the list of all
+        matching items. Handles the pagination of scanning internally to the function.
+
+        :param table: the table to query
+        :param filter_expression: the dynamo filter expression
+        '''
+        response_items = []
+
+        table = self.get_table(table_name)
+        if table:
+            should_continue = True
+            last_evaluated = None
+            
+            the_kwargs = {"Limit": limit}
+            if filter_expression:
+                the_kwargs["FilterExpression"] = filter_expression
+
+            while should_continue:
+                if last_evaluated:
+                   the_kwargs["ExclusiveStartKey"] = last_evaluated
+
+                response = table.scan(**the_kwargs)
+                response_items.extend(response.get('Items'))
+                    
+                last_evaluated = response.get("LastEvaluatedKey", None)
+                # stop if there are no more queries
+                if not last_evaluated or len(response_items) >= limit:
+                    should_continue = False
+
+        return response_items
+
+    def get_query_expr(self, key, value):
+        '''
+        Build an implementation-specific query expression object
+        '''
+        if value == False or value == 'False':
+            return Attr(key).eq(value) | Attr(key).not_exists()
+        return Attr(key).eq(value)
+    
+    def conjunctify_query(self, q1, q2):
+        '''
+        Return an implementation-specific query expression that combines the two expressions with 'and' logic
+        '''
+        return q1 & q2
+
+    def query_by_id(self, table_name, key_name, key_val):
+        '''
+        Perform a query on the table for the item with primary key of given id. Returns at most one item.
+        '''
+        item = None
+        table = self.get_table(table_name)
+        if table:
+            response = table.query(KeyConditionExpression=Key(key_name).eq(key_val))
+            items = response.get('Items')
+            if items and len(items) > 0:
+                item = items[0]
+        return items
 
 if __name__ == "__main__":
     import json
     from aletheia.annotations.provider import HDFProvider
     from aletheia.annotations.provider import DataSource
     from aletheia.annotations.provider import AnnotationSelector
-
-    # load the data sources
-    config = {}
-    with open('config.json') as config_file:
-        config = json.load(config_file) 
-
-    ann_provider = HDFProvider()
-
-    for annotation in config.get("annotation_sources", []):
-        print(f'Adding annotation {annotation}')
-        ann_provider.add_source(DataSource(annotation['location'], annotation['name']))
+    from aletheia.annotations.constants import AnnotationConstants
 
     # connect to the db
-    dynamo = Dynamo()
+    dynamo = Dynamo('http://localhost:8000')
     
-    t = dynamo.get_table('test_table')
+    t = dynamo.get_table(AnnotationConstants.ANNOTATION_TABLE_NAME)
     if t is None:
         print('Table does not exist. Creating it now.')
-        t = dynamo.get_table('test_table', should_create=True)
+        t = dynamo.get_table(AnnotationConstants.ANNOTATION_TABLE_NAME, should_create=True)
         
+        # load the data sources
+        config = {}
+        with open('config.json') as config_file:
+            config = json.load(config_file) 
+
+        ann_provider = HDFProvider()
+
+        for annotation in config.get('annotation_sources', []):
+            print(f'Adding annotation {annotation}')
+            ann_provider.add_source(DataSource(annotation['location'], annotation['name']))
+
+        # start submitting
         all_annotations = ann_provider.get_annotations(AnnotationSelector())
         for annotation in all_annotations:
             print(f'Inserting annotation {annotation["id"]}')
             t.put_item(Item=annotation)
     else:
-        print('Table already exists.')
-        
+        print('Table already exists. Delete it and re-run.')
 
-    
+        #print(t.key_schema)
+        #response = t.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('id').eq('e7a64335-1b61-4f1f-a72c-935e7c4f3f41'))
+        #response = t.update_item(
+        #   Key={'id': 'e7a64335-1b61-4f1f-a72c-935e7c4f3f41'}, 
+        #    UpdateExpression="SET verified = :true_val",
+        #    ExpressionAttributeValues={':true_val':True},
+        #    ReturnValues="UPDATED_NEW"
+        #    )
+        #print(f'update response: {response}')
+        
+        #response = t.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('id').eq('e7a64335-1b61-4f1f-a72c-935e7c4f3f41'))
+        query_expr = dynamo.get_query_expr('verified', False)
+        #query_expr = dynamo.conjunctify_query(query_expr, dynamo.get_query_expr('cons_verb', 'Object:Interact'))
+        response = dynamo.query_table(AnnotationConstants.ANNOTATION_TABLE_NAME, query_expr)
+        #response = dynamo.query_table(t, boto3.dynamodb.conditions.Attr('verified').eq(True))
+        print(f'response: {response}')
+        #print(f'{response["Items"]}')

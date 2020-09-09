@@ -10,4 +10,3 @@ cp /media/sf_share/NN_3/*.h5 data
 docker build -t testimage .
 
 rm -rf data
-rm -rf server/dist

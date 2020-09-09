@@ -65,6 +65,7 @@ class HDFProvider:
       
       if df_to_query is not None:
         results = df_to_query
+        results['source'] = df_key
         if annotation_selector.annotation_id:
           try:
             the_uuid = uuid.UUID(annotation_selector.annotation_id)
@@ -81,6 +82,7 @@ class HDFProvider:
         df_to_query = self._annotation_store.get(key)
 
         sub_results = df_to_query
+        df_to_query['source'] = key
         if annotation_selector.annotation_id:
           try:
             the_uuid = uuid.UUID(annotation_selector.annotation_id)
