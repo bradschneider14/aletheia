@@ -2,6 +2,7 @@ import boto3
 from boto3.dynamodb.conditions import Attr
 from boto3.dynamodb.conditions import Key
 import os
+import json
 
 class Dynamo:
     def __init__(self, url=None):
@@ -113,13 +114,18 @@ class Dynamo:
 
         return response_items
 
-    def get_query_expr(self, key, value):
+    def get_query_expr(self, key, value, op='eq'):
         '''
         Build an implementation-specific query expression object
         '''
-        if value == False or value == 'False':
-            return Attr(key).eq(value) | Attr(key).not_exists()
-        return Attr(key).eq(value)
+        if op == 'eq':
+            if value == False or value == 'False':
+                return Attr(key).eq(value) | Attr(key).not_exists()
+            return Attr(key).eq(value)
+        else:
+            if value == True or value == 'True':
+                return Attr(key).ne(value) | Attr(key).not_exists()
+            return Attr(key).ne(value)
     
     def conjunctify_query(self, q1, q2):
         '''
@@ -139,6 +145,32 @@ class Dynamo:
             if items and len(items) > 0:
                 item = items[0]
         return items
+
+    def update_item(self, table_name, item_id, values):
+        table = self.get_table(table_name)
+        if table:
+            set_expr = ''
+            val_map = {}
+            val_counter = 0
+            for ind, val_key in enumerate(values):
+                set_expr += 'set ' if ind == 0 else ', '
+                set_expr += f'{val_key}=:val_{val_counter}'
+                val_map[f':val_{val_counter}'] = str(values[val_key])
+                val_counter = val_counter + 1
+
+            print(f'set expr: {set_expr}')
+            print(f'val map: {val_map}')
+            response = table.update_item(
+                Key={
+                    'id':item_id
+                },
+                UpdateExpression=set_expr,
+                ExpressionAttributeValues=val_map,
+                ReturnValues='UPDATED_NEW'
+            )
+            print(f'Response: {json.dumps(response)}')
+            return {'attributes': response.get("Attributes", {})}
+
 
 if __name__ == "__main__":
     import json

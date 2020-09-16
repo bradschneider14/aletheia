@@ -7,5 +7,5 @@
     {"name":"P05_01", "location":"/data/P05_01.h5"},
     {"name":"P05_03", "location":"/data/P05_03.h5"}
   ],
-  "annotation_url": "http://172.18.0.2:8000"
+  "annotation_url": "http://dynamo:8000"
 }

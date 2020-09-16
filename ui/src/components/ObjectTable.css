@@ -1,0 +1,8 @@
+.propertyTable{
+    font-family:monospace;
+    white-space:pre;
+}
+
+.propertyTable tr, .propertyTable td{
+    border:1px solid black;
+}

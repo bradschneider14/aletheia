@@ -1,0 +1,13 @@
+.leftbox{
+    float:left;
+    width:65%;
+    height:100%;
+    margin-top:10px;
+}
+
+.rightbox{
+    float:right;
+    width:35%;
+    height:100%;
+    margin-top: 10px;
+}

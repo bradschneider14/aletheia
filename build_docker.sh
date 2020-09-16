@@ -1,12 +1,11 @@
 #/bin/bash
 
 pushd server
+source venv/bin/activate
 python setup.py bdist_wheel
+deactivate
 popd
 
-mkdir data
-cp /media/sf_share/NN_3/*.h5 data
+docker build -t aletheia/api .
 
-docker build -t testimage .
-
-rm -rf data
+rm -rf server/dist
