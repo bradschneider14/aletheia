@@ -48,7 +48,13 @@ class HDFProvider:
     df = pandas.merge(df,
                       source_store.get('4'),
                       on='id')
+    # merge fis results
+    df = pandas.merge(df,
+                      source_store.get('fis'),
+                      on='id')
+  
     self._annotation_store.put(source.source_id, df)
+    print(f'found columns: {df.columns}') 
   
 
   def get_annotations(self, annotation_selector:AnnotationSelector):

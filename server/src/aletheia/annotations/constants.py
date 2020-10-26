@@ -27,5 +27,9 @@ class AnnotationConstants:
         'start_frame',
         'verb',
         'verified',
-        'verified_hands'
+        'verified_hands',
+        'interact',
+        'modify',
+        'relocate',
+        'verb_cat'
     ]

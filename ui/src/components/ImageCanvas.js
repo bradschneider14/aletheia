@@ -16,10 +16,27 @@ class ImageCanvas extends React.Component{
         this.drawCanvas = this.drawCanvas.bind(this);
         this.clearCanvas = this.clearCanvas.bind(this);
         this.cancelDrawing = this.cancelDrawing.bind(this);
+        this.prepareImage = this.prepareImage.bind(this);
+        this.canvasOnMouseMove = this.canvasOnMouseMove.bind(this);
+        this.createBox = this.createBox.bind(this);
+    }
+
+    componentDidMount(){
+        this.setState(
+        {
+            imageSrc: this.props.imageSrc,
+            imageLoaded: false
+        },
+        () => {
+            this.prepareImage();
+        });
     }
 
     componentDidUpdate(prevProps, prevState){
-        if(prevState.drawingEnabled !== this.props.drawingEnabled){
+    if(this.canvasRef && this.canvasRef.current){
+        this.canvasRef.current.style.cursor = 'crosshair';   
+    }        
+    if(prevState.drawingEnabled !== this.props.drawingEnabled){
             this.setState({
                 drawingEnabled: this.props.drawingEnabled
             });
@@ -37,50 +54,53 @@ class ImageCanvas extends React.Component{
                     imageLoaded: false
                 },
                 () => {
-                    let image = new Image();
-                    image.onload = ()=>{
-                        let context = this.canvasRef && this.canvasRef.current ? this.canvasRef.current.getContext('2d') : null;
-                        if(context){
-                            const canvas = this.canvasRef.current;
-                            let origWidth = image.width;
-                            let origHeight = image.height;
-
-                            let canvasWidth = canvas.width;
-                            let canvasHeight = canvas.height;
-
-                            let ratio = origWidth > canvasWidth ? canvasWidth/origWidth : origWidth/canvasWidth;
-                            let newWidth = origWidth * ratio;
-                            let newHeight = origHeight * ratio;
-                            if(newHeight > canvasHeight){
-                                ratio = origHeight > canvasHeight ? canvasHeight/origHeight : origHeight/canvasHeight;
-                                newHeight = origHeight * ratio;
-                                newWidth = origWidth * ratio;
-                            }
-            
-                            let wOffset = (canvasWidth - newWidth)/2;
-                            let hOffset = (canvasHeight - newHeight)/2;
-
-                            this.setState({
-                                    imageLoaded: true,
-                                    scaleRatio: ratio,
-                                    wOffset: wOffset,
-                                    hOffset: hOffset,
-                                    scaledWidth: newWidth,
-                                    scaledHeight: newHeight,
-                                },
-                                () => {
-                                    this.drawCanvas();
-                                }
-                            );
-                        }
-                    }
-                    image.src = this.state.imageSrc;
-                }
-            );
+                    this.prepareImage();
+                });
         }
         else{
             this.drawCanvas();
         }
+    }
+
+    prepareImage(){
+        let image = new Image();
+        image.onload = ()=>{
+            let context = this.canvasRef && this.canvasRef.current ? this.canvasRef.current.getContext('2d') : null;
+            if(context){
+                const canvas = this.canvasRef.current;
+                let origWidth = image.width;
+                let origHeight = image.height;
+
+                let canvasWidth = canvas.width;
+                let canvasHeight = canvas.height;
+
+                let ratio = origWidth > canvasWidth ? canvasWidth/origWidth : origWidth/canvasWidth;
+                let newWidth = origWidth * ratio;
+                let newHeight = origHeight * ratio;
+                if(newHeight > canvasHeight){
+                    ratio = origHeight > canvasHeight ? canvasHeight/origHeight : origHeight/canvasHeight;
+                    newHeight = origHeight * ratio;
+                    newWidth = origWidth * ratio;
+                }
+            
+                let wOffset = (canvasWidth - newWidth)/2;
+                let hOffset = (canvasHeight - newHeight)/2;
+
+                this.setState({
+                      imageLoaded: true,
+                      scaleRatio: ratio,
+                      wOffset: wOffset,
+                      hOffset: hOffset,
+                      scaledWidth: newWidth,
+                      scaledHeight: newHeight,
+                    },
+                    () => {
+                       this.drawCanvas();
+                    }
+                );
+            }
+        }
+        image.src = this.state.imageSrc;
     }
 
     clearCanvas(){
@@ -96,8 +116,15 @@ class ImageCanvas extends React.Component{
             return;
         }
 
-        let image = new Image()
-        image.onload = ()=>{
+        if(!this.state.imageObj){
+            let image = new Image();
+            image.onload = ()=>{
+                this.setState({imageObj: image}, () => { this.drawCanvas() });
+            }
+            image.src = this.state.imageSrc; 
+        }        
+        else{
+            const image = this.state.imageObj;
             let context = this.canvasRef && this.canvasRef.current ? this.canvasRef.current.getContext('2d') : null;
             if(context){
                 const canvas = this.canvasRef.current;
@@ -116,13 +143,12 @@ class ImageCanvas extends React.Component{
                 });
             }          
         };
-        image.src = this.state.imageSrc; 
     }
 
-    drawBox(box){
+    drawBox(box, shouldScale=true){
         let canvas = this.canvasRef.current; 
         let context = canvas.getContext('2d');
-        const ratio = this.state.scaleRatio || 1.0;
+        const ratio = shouldScale ? (this.state.scaleRatio || 1.0) : 1.0;
 
         context.fillStyle = box.color || 'green';
         context.globalAlpha = 0.35;
@@ -136,16 +162,16 @@ class ImageCanvas extends React.Component{
 
     cancelDrawing(){
         this.setState({ drawingActive:false });
-        if(this.canvasRef.current){
+        /*if(this.canvasRef.current){
             this.canvasRef.current.style.cursor = 'default';
-        }
+        }*/
     }
 
     beginDrawing(){
         this.setState({ drawingActive:true });
-        if(this.canvasRef.current){
+        /*if(this.canvasRef.current){
             this.canvasRef.current.style.cursor = 'crosshair';   
-        }
+        }*/
     }
 
     canvasOnClick(evt, boxHandler){
@@ -159,10 +185,14 @@ class ImageCanvas extends React.Component{
                 if(boxHandler){
                     // don't forget to scale back up...
                     const ratio = this.state.scaleRatio || 1.0;
-                    boxHandler(Math.min(this.state.startX, endX)/ratio,
-                            Math.max(this.state.startX, endX)/ratio,
-                            Math.min(this.state.startY, endY)/ratio,
-                            Math.max(this.state.startY, endY)/ratio);
+                    const box = this.createBox(
+                            Math.min(this.state.startX, endX),
+                            Math.max(this.state.startX, endX),
+                            Math.min(this.state.startY, endY),
+                            Math.max(this.state.startY, endY)
+                    );
+
+                    boxHandler(box.x0, box.x1, box.y0, box.y1);
                 }
                 this.cancelDrawing();
             }   
@@ -194,6 +224,40 @@ class ImageCanvas extends React.Component{
         }
     }
 
+    createBox(startX, endX, startY, endY, color, shouldScale=true){
+        // don't forget to scale back up...
+        const ratio = shouldScale ? (this.state.scaleRatio || 1.0) : 1.0;
+        const box = {
+            x0: startX/ratio,
+            x1: endX/ratio,
+            y0: startY/ratio,
+            y1: endY/ratio,
+            color: color || 'green',
+        };
+
+        return box;
+    }
+
+    canvasOnMouseMove(evt){
+        this.clearCanvas();
+        this.drawCanvas();
+        if(this.state.drawingActive){
+            let canvas = this.canvasRef.current;
+            let currX = evt.clientX - canvas.getBoundingClientRect().left;
+            let currY = evt.clientY - canvas.getBoundingClientRect().top;
+
+            const box = this.createBox(
+                Math.min(currX, this.state.startX),
+                Math.max(currX, this.state.startX),
+                Math.min(currY, this.state.startY),
+                Math.max(currY, this.state.startY),
+                'red',
+                false);
+
+            this.drawBox(box, false);
+        }
+    }
+
     render(){
         return (
             <canvas 
@@ -203,7 +267,10 @@ class ImageCanvas extends React.Component{
                 style={{height:'432px', width:'768px'}} 
                 onClick={(evt) => {
                     this.canvasOnClick(evt, this.props.boxHandler);
-                }} 
+                }}
+                onMouseMove={(evt)=>{
+                    this.canvasOnMouseMove(evt);
+                }}
             />
         );
     }

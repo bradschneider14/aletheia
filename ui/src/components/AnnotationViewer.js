@@ -24,6 +24,7 @@ class AnnotationViewer extends React.Component{
         this.submitVerification = this.submitVerification.bind(this);
         this.submitHandBoxes = this.submitHandBoxes.bind(this);
         this.canvasBoxHandler = this.canvasBoxHandler.bind(this);
+        this.submitActionCat = this.submitActionCat.bind(this);
     }
 
     componentDidMount(){
@@ -104,11 +105,25 @@ class AnnotationViewer extends React.Component{
                 if(this.state.annotation){
                     this.setState({
                         annotation: Object.assign(this.state.annotation, theData),
-                        drawingEnabled: true,
                     });
                 }
             },
             (error) => console.log('Failed to submit verification: ' + error)
+        );
+    }
+
+    submitActionCat(verbCat){
+        let theData = {verb_cat: verbCat}
+        APIProxy.putUrl(`annotation/${this.state.annotation.id}`, theData,
+            (resp) => {
+                if(this.state.annotation){
+                    this.setState({
+                        annotation: Object.assign(this.state.annotation, theData),
+                        drawingEnabled: true,
+                    });
+                }
+            },
+            (error) => console.log('Failed to submit action category: ' + error)
         );
     }
 
@@ -135,12 +150,20 @@ class AnnotationViewer extends React.Component{
 
     render(){
         let topBox;
+        let imageArea;    
 
         if(this.state.annotation){
             if(!this.state.annotation['verified']){
+                let actionPhrase = ''
+                if(this.state.annotation['verb'] && this.state.annotation['obj_name']){
+                    actionPhrase = `(${this.state.annotation['verb']} ${this.state.annotation['obj_name']})`;
+                }    
+
+                const promptStr = `Does the action appear to be correct? ${actionPhrase}`;
+
                 topBox = (
                     <PromptBanner
-                        text='Does the action appear to be correct?'
+                        text={promptStr}
                         options={[
                             { 
                                 label:'no',
@@ -153,11 +176,51 @@ class AnnotationViewer extends React.Component{
                         ]}
                     />
                 );
+
+                imageArea = (
+                    <img 
+                        src={this.state.annotationImage ? this.state.annotationImage : require('../images/loading.gif')}
+                        style={{maxWidth:"100%", maxHeight:"100%"}}
+                    />
+                );
+            }
+
+        else if(!this.state.annotation['verb_cat']){
+                topBox = (
+                    <PromptBanner
+                        text='Which verb category is most descriptive of the action?'
+                        options={[
+                            { 
+                                label:'Interact',
+                                action: ()=>{this.submitActionCat('interact')}
+                            },
+                            {
+                                label:'Modify',
+                                action: ()=>{ this.submitActionCat('modify')}
+                            },
+                            {
+                                label:'Relocate',
+                                action: ()=>{ this.submitActionCat('relocate')}
+                            },
+                            {
+                                label:'None',
+                                action: ()=>{ this.submitActionCat('none')}
+                            },
+                        ]}
+                    />
+                );
+
+                imageArea = (
+                    <img 
+                        src={this.state.annotationImage ? this.state.annotationImage : require('../images/loading.gif')}
+                        style={{maxWidth:"100%", maxHeight:"100%"}}
+                    />
+                );
             }
             else if(!this.state.annotation['verified_hands']){
                 topBox = (
                     <PromptBanner
-                        text='Please draw a box over the region(s) containing hands.'
+                        text='Please draw a box over the region(s) containing hands (separate boxes for each hand), capturing up to the wrist if visible.'
                         options={[
                             {
                                 label:'Clear',
@@ -168,6 +231,16 @@ class AnnotationViewer extends React.Component{
                                 action: ()=>{ this.submitHandBoxes() }
                             },
                         ]}
+                    />
+                );
+
+                imageArea = (
+                    <ImageCanvas
+                        drawingEnabled={this.state.drawingEnabled}
+                        imageSrc={this.state.annotationImage ? this.state.annotationImage : require('../images/loading.gif')}
+                        style={{maxWidth:"100%", maxHeight:"100%"}}
+                        boxHandler={this.canvasBoxHandler}
+                        boxes={[...this.state.handBoxes, ...this.state.objectBoxes, ...this.state.verifiedHandBoxes]}
                     />
                 );
             }
@@ -183,6 +256,9 @@ class AnnotationViewer extends React.Component{
                         ]}
                     />
                 );
+                imageArea = (
+                    <div></div>
+                );
             }
         }
 
@@ -190,13 +266,7 @@ class AnnotationViewer extends React.Component{
             <div>
                 {topBox}
                 <div className={'leftbox'}>
-                    <ImageCanvas
-                        drawingEnabled={this.state.drawingEnabled}
-                        imageSrc={this.state.annotationImage ? this.state.annotationImage : 'images/loading.gif'} 
-                        style={{maxWidth:"100%", maxHeight:"100%"}}
-                        boxHandler={this.canvasBoxHandler}
-                        boxes={[...this.state.handBoxes, ...this.state.objectBoxes, ...this.state.verifiedHandBoxes]}
-                    />
+                    {imageArea}
                 </div>
                 <ObjectTable
                     object={this.state.annotation}

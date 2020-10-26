@@ -69,12 +69,16 @@ class AnnotationImageView(BaseAnnotationView):
       source = annotation.get('source')
       participant = source[1:4]
 
-      temp = NamedTemporaryFile(suffix='.png')
+      temp = NamedTemporaryFile(suffix='.gif')
       print(f'Created temp file {temp.name}')
 
       video_url = f'{BASE_VIDEO_URL}/{participant}/{source[1:]}.MP4'
-      subprocess.call(['ffmpeg', '-ss', f'{seconds:.3f}', '-i', f'{video_url}', '-frames:v', '1', '-y', temp.name])
-      return self._build_response(send_file(temp, mimetype='image/png'))
+
+      #subprocess.call(['ffmpeg', '-ss', f'{seconds:.3f}', '-i', f'{video_url}', '-frames:v', '1', '-y', temp.name])
+      subprocess.call(['ffmpeg', '-ss', f'{seconds:.3f}', '-t', '0.5', '-i', f'{video_url}', 
+                       '-vf', 'fps=10,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+                       '-loop', '0', '-y', temp.name])
+      return self._build_response(send_file(temp, mimetype='image/gif'))
     return self._build_response(Response(response={}, status=404))
 
 

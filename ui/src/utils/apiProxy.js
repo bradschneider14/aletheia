@@ -1,7 +1,7 @@
 
 class APIProxy{
-    static BASE_URL='http://localhost:8888';
-
+    //static BASE_URL=`http://${window.location.hostname || "localhost"}:8888`;
+    static BASE_URL='http://api-aletheia.herokuapp.com';
     static getUrl(url, success, error){
         fetch(`${APIProxy.BASE_URL}/${url}`).then(resp => resp.json()).then(success).catch(error);
     }
